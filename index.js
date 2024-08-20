@@ -24,7 +24,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const userCollection = client.db("bistroboss").collection("users");
     const menuCollection = client.db("bistroboss").collection("menus");
@@ -200,7 +200,7 @@ async function run() {
     // await client.close();
   }
 }
-run().catch(console.dir);
+run().catch(console.log);
 
 app.get("/", (req, res) => {
   res.send("boss is sitting");
