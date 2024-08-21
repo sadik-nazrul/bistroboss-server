@@ -33,7 +33,8 @@ async function run() {
     const cartsCollection = client.db("bistroboss").collection("carts");
     const paymentsCollection = client.db("bistroboss").collection("payments");
 
-    // Jwt related api
+    /* ******JWT related API**** */
+
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
@@ -70,7 +71,8 @@ async function run() {
       next();
     };
 
-    // User related Api
+    /* ******User related API**** */
+
     app.get("/users", verifyToken, varifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
@@ -102,6 +104,8 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
+
+
     // Create admin
     app.patch(
       "/users/admin/:id",
@@ -126,7 +130,8 @@ async function run() {
       res.send(result);
     });
 
-    // Menu related Api
+    /* ******Menu related API**** */
+
     app.get("/menu", async (req, res) => {
       const result = await menuCollection.find().toArray();
       res.send(result);
@@ -167,12 +172,14 @@ async function run() {
     })
 
 
+    /* ******Reviews related API**** */
     // Reviews related API
     app.get("/reviews", async (req, res) => {
       const result = await reviewCollection.find().toArray();
       res.send(result);
     });
 
+    /* ******Cart related API**** */
     // Carts collections
     app.get("/carts", verifyToken, async (req, res) => {
       const email = req.query.email;
@@ -192,6 +199,12 @@ async function run() {
       res.send(result);
     });
 
+    /* ******Payment related API**** */
+    app.get('/payments/:email', verifyToken, async (req, res) => {
+      const query = { email: req.params.email }
+      const result = await paymentsCollection.find(query).toArray()
+      res.send(result)
+    })
     // Payment Intent
     app.post('/create-payment-intent', async (req, res) => {
       const { price } = req.body;
@@ -216,10 +229,7 @@ async function run() {
           $in: payment.cartIds.map(id => new ObjectId(id))
         }
       }
-      const deleteCartItems = await cartsCollection.deleteMany(query)
-
-      console.log(payment);
-
+      const deleteCartItems = await cartsCollection.deleteMany(query);
       res.send({ paymentResult, deleteCartItems })
     })
 
