@@ -3,6 +3,7 @@ const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const stripe = require('stripe')(process.env.PAYMENT_SECRET);
 const port = process.env.PORT || 5002;
 
 // middleware
@@ -24,18 +25,19 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    // await client.connect();
+    await client.connect();
 
     const userCollection = client.db("bistroboss").collection("users");
     const menuCollection = client.db("bistroboss").collection("menus");
     const reviewCollection = client.db("bistroboss").collection("reviews");
     const cartsCollection = client.db("bistroboss").collection("carts");
+    const paymentsCollection = client.db("bistroboss").collection("payments");
 
     // Jwt related api
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "1h",
+        expiresIn: "365d",
       });
       res.send({ token });
     });
@@ -189,6 +191,37 @@ async function run() {
       const result = await cartsCollection.deleteOne(query);
       res.send(result);
     });
+
+    // Payment Intent
+    app.post('/create-payment-intent', async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: 'usd',
+        payment_method_types: ['card']
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret
+      })
+    })
+    app.post('/payments', async (req, res) => {
+      const payment = req.body
+      const paymentResult = await paymentsCollection.insertOne(payment);
+      // carefully delete each item from the cart
+      const query = {
+        _id: {
+          $in: payment.cartIds.map(id => new ObjectId(id))
+        }
+      }
+      const deleteCartItems = await cartsCollection.deleteMany(query)
+
+      console.log(payment);
+
+      res.send({ paymentResult, deleteCartItems })
+    })
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
