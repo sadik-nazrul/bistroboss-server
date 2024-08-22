@@ -233,7 +233,7 @@ async function run() {
       res.send({ paymentResult, deleteCartItems })
     })
 
-    app.get('/admin-stats', async (req, res) => {
+    app.get('/admin-stats', verifyToken, varifyAdmin, async (req, res) => {
       const users = await userCollection.estimatedDocumentCount();
       const menuItems = await menuCollection.estimatedDocumentCount();
       const orders = await paymentsCollection.estimatedDocumentCount();
@@ -255,11 +255,48 @@ async function run() {
       res.send({ users, menuItems, orders, revenue })
     })
 
+    app.get('/order-stats', verifyToken, varifyAdmin, async (req, res) => {
+      const result = await paymentsCollection.aggregate([
+        {
+          $unwind: '$menuIds'
+        },
+        {
+          $lookup: {
+            from: "menus",
+            let: { menuId: { $toObjectId: '$menuIds' } },
+            pipeline: [{
+              $match: { $expr: { $eq: ['$_id', '$$menuId'] } }
+            }],
+            as: "menuItems"
+          }
+        },
+        {
+          $unwind: '$menuItems'
+        },
+        {
+          $group: {
+            _id: '$menuItems.category',
+            quantity: { $sum: 1 },
+            revenue: { $sum: '$menuItems.price' }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            category: '$_id',
+            quantity: '$quantity',
+            revenue: '$revenue'
+          }
+        }
+      ]).toArray();
+      res.send(result)
+    })
+
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
